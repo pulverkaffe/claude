@@ -96,6 +96,10 @@ class BeehiivImporter:
                 episode_match = re.search(r'podd_(\d+)', file_path.stem)
                 episode_num = episode_match.group(1) if episode_match else None
 
+                # Remove leading zeros (02 -> 2, 003 -> 3)
+                if episode_num:
+                    episode_num = str(int(episode_num))
+
                 lines = content.split('\n')
 
                 # Find the first h1 (# Title)
@@ -110,6 +114,10 @@ class BeehiivImporter:
                 if not h1_title:
                     print(f"  ⚠️  Warning: No h1 found in {file_path.name}, using filename")
                     h1_title = file_path.stem
+
+                # Remove "Podd X:" prefix from title if present
+                if h1_title:
+                    h1_title = re.sub(r'^Podd\s+\d+:\s*', '', h1_title, flags=re.IGNORECASE)
 
                 # Format title as "Podcast #X – Title" if episode number exists
                 if episode_num:
