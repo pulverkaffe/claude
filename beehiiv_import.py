@@ -161,7 +161,9 @@ class BeehiivImporter:
             post_data = {
                 'title': title,
                 'body_content': html_content,
-                'status': 'draft'
+                'status': 'draft',
+                'platform': 'web',           # Web-only, not email
+                'content_tags': ['podcast']  # Tag as podcast
             }
 
             # Add subtitle if found
