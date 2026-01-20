@@ -2,6 +2,10 @@
 credentials.json
 token.pickle
 
+# beehiiv Import Script
+.env
+import_log.json
+
 # Python
 __pycache__/
 *.py[cod]
