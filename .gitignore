@@ -2,6 +2,9 @@
 credentials.json
 token.pickle
 
+# Beehiiv config (contains API key)
+.beehiiv_config.json
+
 # Python
 __pycache__/
 *.py[cod]
