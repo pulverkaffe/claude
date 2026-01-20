@@ -77,14 +77,77 @@ class BeehiivImporter:
     def parse_markdown_file(self, file_path: Path) -> Optional[Dict]:
         """Parse a markdown file and extract metadata and content"""
         try:
-            # Use python-frontmatter to parse front matter
-            post = frontmatter.load(file_path)
+            # Read the raw file content
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
 
-            # Get title from front matter or use filename
-            title = post.get('title', file_path.stem)
+            # Check if file has front matter (starts with ---)
+            if content.startswith('---'):
+                # Use python-frontmatter to parse front matter
+                post = frontmatter.load(file_path)
+                title = post.get('title', file_path.stem)
+                html_content = self.md.convert(post.content)
+                subtitle = post.get('subtitle', '')
+            else:
+                # Custom parsing for podcast format (podd_X.md)
+                import re
 
-            # Convert markdown content to HTML
-            html_content = self.md.convert(post.content)
+                # Extract episode number from filename (e.g., podd_2.md -> 2)
+                episode_match = re.search(r'podd_(\d+)', file_path.stem)
+                episode_num = episode_match.group(1) if episode_match else None
+
+                lines = content.split('\n')
+
+                # Find the first h1 (# Title)
+                h1_title = None
+                h1_index = -1
+                for i, line in enumerate(lines):
+                    if line.strip().startswith('# '):
+                        h1_title = line.strip()[2:].strip()  # Remove '# ' prefix
+                        h1_index = i
+                        break
+
+                if not h1_title:
+                    print(f"  ⚠️  Warning: No h1 found in {file_path.name}, using filename")
+                    h1_title = file_path.stem
+
+                # Format title as "Podcast #X – Title" if episode number exists
+                if episode_num:
+                    title = f"Podcast #{episode_num} – {h1_title}"
+                else:
+                    title = h1_title
+
+                # Extract subtitle (italic section after h1)
+                subtitle = ""
+                subtitle_lines = []
+                body_start_index = h1_index + 1
+
+                if h1_index >= 0:
+                    # Look for italic text after h1 (lines starting with * or _ or containing *text*)
+                    for i in range(h1_index + 1, len(lines)):
+                        line = lines[i].strip()
+                        if not line:  # Skip empty lines
+                            continue
+                        # Check if line is italic (wrapped in * or _ or starts with them)
+                        if (line.startswith('*') and not line.startswith('**')) or \
+                           (line.startswith('_') and not line.startswith('__')) or \
+                           ('*' in line and not '**' in line):
+                            # Remove markdown italic syntax
+                            clean_line = re.sub(r'[*_]', '', line)
+                            subtitle_lines.append(clean_line)
+                            body_start_index = i + 1
+                        else:
+                            # Found non-italic content, stop looking for subtitle
+                            break
+
+                subtitle = ' '.join(subtitle_lines)
+
+                # Get the rest as body content (skip h1 and subtitle lines)
+                body_lines = lines[body_start_index:]
+                body_content = '\n'.join(body_lines).strip()
+
+                # Convert markdown to HTML
+                html_content = self.md.convert(body_content)
 
             # Build post data
             post_data = {
@@ -93,12 +156,9 @@ class BeehiivImporter:
                 'status': 'draft'
             }
 
-            # Add optional fields if present in front matter
-            if 'subtitle' in post:
-                post_data['subtitle'] = post['subtitle']
-
-            if 'content_tags' in post:
-                post_data['content_tags'] = post['content_tags']
+            # Add subtitle if found
+            if subtitle:
+                post_data['subtitle'] = subtitle
 
             # Store file info for logging
             post_data['_source_file'] = str(file_path)
